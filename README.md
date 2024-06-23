@@ -1,0 +1,2 @@
+# gomigrator
+SQL migrations utility
