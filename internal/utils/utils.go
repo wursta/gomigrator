@@ -1,12 +1,16 @@
 package utils
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 )
+
+const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func GetAbsoluteMigrationsDir(dir string) (string, error) {
 	migrationsDir := dir
@@ -22,7 +26,7 @@ func GetAbsoluteMigrationsDir(dir string) (string, error) {
 }
 
 func GetMigrationFileName(migrationName string) string {
-	return time.Now().Format("2006_01_02T15_04_05__" + migrationName)
+	return time.Now().Format("2006_01_02T15_04_05__" + migrationName + "__" + generateRandomString(5))
 }
 
 func CreateMigrationFile(dir, migrationName, extension string) (*os.File, error) {
@@ -37,4 +41,17 @@ func CreateMigrationFile(dir, migrationName, extension string) (*os.File, error)
 	}
 
 	return f, nil
+}
+
+func generateRandomString(length int) string {
+	ret := make([]byte, length)
+	for i := 0; i < length; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			panic(err)
+		}
+		ret[i] = letters[num.Int64()]
+	}
+
+	return string(ret)
 }
