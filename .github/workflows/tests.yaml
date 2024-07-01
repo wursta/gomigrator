@@ -26,3 +26,6 @@ jobs:
       - name: Unit Test
         run: make test
 
+      - name: Build
+        run: make build
+
