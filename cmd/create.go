@@ -14,14 +14,14 @@ var createCmd = &cobra.Command{
 	Use:   "create <migration-name>",
 	Short: "Creates a new migration",
 	Long:  `Log description...`,
-	Args: func(cmd *cobra.Command, args []string) error {
+	Args: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return errors.New("argument migration-name is required")
 		}
 
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		var migrationName string
 		if len(args) == 0 {
 			log.Fatal("Required arguments not passed")

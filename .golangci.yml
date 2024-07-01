@@ -17,6 +17,7 @@ linters-settings:
         allow:
           - $gostd
           - github.com/spf13/cobra
+          - github.com/spf13/viper
           - github.com/stretchr/testify/require
           - github.com/wursta/gomigrator/cmd
           - github.com/wursta/gomigrator/pkg/app
