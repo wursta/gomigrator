@@ -1,11 +1,19 @@
 package cmd
 
 import (
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
+var (
+	cfgFile   string
+	appConfig Config
+)
+
+// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gomigrator",
 	Short: "A brief description of your application",
@@ -30,14 +38,39 @@ func Execute() {
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gomigrator.yaml)")
-
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file (YAML format)")
 	rootCmd.PersistentFlags().String("migrations-dir", "", "Directory with migration files")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// initConfig reads in config file and ENV variables if set and in flags if set.
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	}
+
+	viper.SetEnvPrefix("gomigrator")
+	viper.AllowEmptyEnv(true)
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err == nil {
+		log.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	err := viper.BindPFlag("migrations_dir", rootCmd.PersistentFlags().Lookup("migrations-dir"))
+	if err != nil {
+		log.Fatal("error binding flag:", err)
+	}
+
+	if err := viper.Unmarshal(&appConfig); err != nil {
+		log.Fatal("error parsing config into struct:", err)
+	}
 }
