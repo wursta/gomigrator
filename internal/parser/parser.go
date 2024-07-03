@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
@@ -19,15 +18,15 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 		return nil, err
 	}
 
-	migrations := []migrator.Migration{}
+	migrations := make([]migrator.Migration, len(files))
 	parsingErrors := map[string]error{}
 	wg := &sync.WaitGroup{}
 	mu := &sync.Mutex{}
 
-	for _, file := range files {
+	for i, file := range files {
 		wg.Add(1)
 
-		go func() {
+		go func(i int) {
 			defer wg.Done()
 
 			filePath := filepath.Join(migrationsDir, file.Name())
@@ -39,7 +38,7 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 
 			mu.Lock()
 			defer mu.Unlock()
-			migrations = append(migrations, migrator.Migration{
+			migrations[i] = migrator.Migration{
 				Name:     filepath.Base(file.Name()),
 				FilePath: filepath.Join(migrationsDir, file.Name()),
 				UpHandlerContext: func(ctx context.Context, tx *sqlx.Tx) error {
@@ -58,18 +57,14 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 
 					return nil
 				},
-			})
-		}()
+			}
+		}(i)
 	}
 	wg.Wait()
 
 	if len(parsingErrors) != 0 {
 		return nil, fmt.Errorf("error while parsing migration files: %s", parsingErrors)
 	}
-
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].Name < migrations[j].Name
-	})
 
 	return migrations, nil
 }
