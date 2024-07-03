@@ -2,6 +2,7 @@ package pgmigrator
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // postgres driver
@@ -60,9 +61,20 @@ func (m *PgMigrator) Close() error {
 }
 
 func (m *PgMigrator) Up(ctx context.Context, migrations []migrator.Migration) error {
+	tx, err := m.db.BeginTxx(ctx, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for i := range migrations {
 		migration := migrations[i]
-		migration.UpHandlerContext(ctx, nil)
+		err = migration.UpHandlerContext(ctx, tx)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
+
+	tx.Commit()
 	return nil
 }

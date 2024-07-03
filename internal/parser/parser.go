@@ -42,16 +42,16 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 			migrations = append(migrations, migrator.Migration{
 				Name:     filepath.Base(file.Name()),
 				FilePath: filepath.Join(migrationsDir, file.Name()),
-				UpHandlerContext: func(ctx context.Context, db *sqlx.Tx) error {
-					_, err := db.ExecContext(ctx, upStmt)
+				UpHandlerContext: func(ctx context.Context, tx *sqlx.Tx) error {
+					_, err := tx.ExecContext(ctx, upStmt)
 					if err != nil {
 						return err
 					}
 
 					return nil
 				},
-				DownHandlerContext: func(ctx context.Context, db *sqlx.Tx) error {
-					_, err := db.ExecContext(ctx, downStmt)
+				DownHandlerContext: func(ctx context.Context, tx *sqlx.Tx) error {
+					_, err := tx.ExecContext(ctx, downStmt)
 					if err != nil {
 						return err
 					}
