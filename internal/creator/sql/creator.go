@@ -2,6 +2,7 @@ package creatorsql
 
 import (
 	"os"
+	"time"
 
 	"github.com/wursta/gomigrator/internal/utils"
 )
@@ -17,7 +18,13 @@ func New(dir string) *SQLCreator {
 }
 
 func (s *SQLCreator) Create(migrationName string) (*os.File, error) {
-	f, err := utils.CreateMigrationFile(s.dir, migrationName, "sql")
+	f, err := utils.CreateMigrationFile(
+		time.Now(),
+		s.dir,
+		migrationName,
+		utils.GenerateRandomString(5),
+		"sql",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -25,8 +32,7 @@ func (s *SQLCreator) Create(migrationName string) (*os.File, error) {
 
 	_, err = f.WriteString(`-- migration: up
 
--- migration: down
-	`)
+-- migration: down`)
 	if err != nil {
 		return nil, err
 	}

@@ -19,10 +19,16 @@ linters-settings:
           - github.com/spf13/cobra
           - github.com/spf13/viper
           - github.com/stretchr/testify/require
+          - github.com/jmoiron/sqlx
+          - github.com/jackc/pgx/v5
+          - github.com/DATA-DOG/go-sqlmock          
           - github.com/wursta/gomigrator/cmd
           - github.com/wursta/gomigrator/pkg/app
           - github.com/wursta/gomigrator/internal/utils
+          - github.com/wursta/gomigrator/internal/migrator
+          - github.com/wursta/gomigrator/internal/migrator/pg
           - github.com/wursta/gomigrator/internal/creator/sql
+          - github.com/wursta/gomigrator/internal/parser
   exhaustive:
     # Presence of "default" case in switch statements satisfies exhaustiveness,
     # even if all enum members are not listed.
