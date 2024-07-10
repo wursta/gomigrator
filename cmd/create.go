@@ -8,12 +8,11 @@ import (
 	migratorApp "github.com/wursta/gomigrator/pkg/app"
 )
 
-var goFlag bool
+// var goFlag bool
 
 var createCmd = &cobra.Command{
 	Use:   "create <migration-name>",
-	Short: "Creates a new migration",
-	Long:  `Log description...`,
+	Short: "Create a new migration file",
 	Args: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return errors.New("argument migration-name is required")
@@ -28,12 +27,16 @@ var createCmd = &cobra.Command{
 		}
 		migrationName = args[0]
 
-		app := migratorApp.New(appConfig.MigrationsDir)
+		app := migratorApp.New(
+			appConfig.MigrationsDir,
+			appConfig.DBConnectionDSN,
+			migratorApp.DBTypePotgreSQL,
+		)
 
 		format := migratorApp.MigrationFormatSQL
-		if goFlag {
-			format = migratorApp.MigrationFormatGo
-		}
+		// if goFlag {
+		// 	format = migratorApp.MigrationFormatGo
+		// }
 
 		_, err := app.CreateMigration(migrationName, format)
 		if err != nil {
@@ -53,5 +56,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	createCmd.Flags().BoolVar(&goFlag, "go", false, "Go format for migration file")
+	// createCmd.Flags().BoolVar(&goFlag, "go", false, "Go format for migration file")
 }

@@ -30,7 +30,13 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 			defer wg.Done()
 
 			filePath := filepath.Join(migrationsDir, file.Name())
-			upStmt, downStmt, err := parseMigrationFile(filePath)
+			fileInfo, err := os.Stat(filePath)
+			if err != nil {
+				parsingErrors[file.Name()] = err
+				return
+			}
+
+			upStmt, downStmt, err := parseUpDownStatements(filePath)
 			if err != nil {
 				parsingErrors[file.Name()] = err
 				return
@@ -38,9 +44,12 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 
 			mu.Lock()
 			defer mu.Unlock()
+
 			migrations[i] = migrator.Migration{
+				FilePath: filePath,
 				Name:     filepath.Base(file.Name()),
-				FilePath: filepath.Join(migrationsDir, file.Name()),
+				Status:   migrator.MigrationStatusUnknown,
+				CreateDT: fileInfo.ModTime(),
 				UpHandlerContext: func(ctx context.Context, tx *sqlx.Tx) error {
 					_, err := tx.ExecContext(ctx, upStmt)
 					if err != nil {
@@ -69,7 +78,24 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 	return migrations, nil
 }
 
-func parseMigrationFile(filePath string) (upStmt, downStmt string, err error) {
+func GetMigrationFileDownHandler(migrationsDir, migrationFileName string) (migrator.MigrationHandlerContext, error) {
+	filePath := filepath.Join(migrationsDir, migrationFileName)
+	_, downStmt, err := parseUpDownStatements(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(ctx context.Context, tx *sqlx.Tx) error {
+		_, err := tx.ExecContext(ctx, downStmt)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}, nil
+}
+
+func parseUpDownStatements(filePath string) (upStmt, downStmt string, err error) {
 	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return

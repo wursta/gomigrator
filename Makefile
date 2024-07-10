@@ -9,8 +9,14 @@ build-win:
 install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.59.1
 lint: install-lint-deps
-	golangci-lint run ./...
+	golangci-lint run ./... --timeout=10m
+lint-docker:
+	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make lint
 lint-fix: install-lint-deps
 	golangci-lint run --fix ./...
+lint-fix-docker:
+	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make lint-fix
 test:
 	go test -race -count=100 ./internal/...
+test-docker:
+	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make test

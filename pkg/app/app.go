@@ -15,19 +15,19 @@ type MigrationFormat int
 
 const (
 	MigrationFormatSQL MigrationFormat = iota
-	MigrationFormatGo
+	// MigrationFormatGo.
 )
 
 type DBType int
 
 const (
 	DBTypePotgreSQL DBType = iota
-	DBTypeMySQL
 )
 
 type MigratorApp struct {
-	MigrationsDir string
-	DBType        DBType
+	MigrationsDir   string
+	DBType          DBType
+	DBConnectionDSN string
 }
 
 type Creator interface {
@@ -36,13 +36,19 @@ type Creator interface {
 
 type Migrator interface {
 	Connect(context.Context) error
+	Init(ctx context.Context) error
 	Up(ctx context.Context, migrations []migratorConstants.Migration) error
+	Down(ctx context.Context, migrations []migratorConstants.Migration) error
+	GetLastMigations(ctx context.Context, count int) ([]migratorConstants.Migration, error)
+	GetMigations(ctx context.Context) ([]migratorConstants.Migration, error)
 	Close() error
 }
 
-func New(migrationsDir string) *MigratorApp {
+func New(migrationsDir, dbConnectionDSN string, dbType DBType) *MigratorApp {
 	return &MigratorApp{
-		MigrationsDir: migrationsDir,
+		MigrationsDir:   migrationsDir,
+		DBType:          dbType,
+		DBConnectionDSN: dbConnectionDSN,
 	}
 }
 
@@ -73,8 +79,16 @@ func (a *MigratorApp) Up() error {
 
 	ctx := context.Background()
 
-	migrator.Connect(ctx)
+	err = migrator.Connect(ctx)
+	if err != nil {
+		return err
+	}
 	defer migrator.Close()
+
+	err = migrator.Init(ctx)
+	if err != nil {
+		return err
+	}
 
 	err = migrator.Up(ctx, migrations)
 	if err != nil {
@@ -82,6 +96,104 @@ func (a *MigratorApp) Up() error {
 	}
 
 	return nil
+}
+
+func (a *MigratorApp) Down() error {
+	migrator, err := a.getMigrator()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	err = migrator.Connect(ctx)
+	if err != nil {
+		return err
+	}
+	defer migrator.Close()
+
+	err = migrator.Init(ctx)
+	if err != nil {
+		return err
+	}
+
+	migrations, err := migrator.GetLastMigations(ctx, 1)
+	if err != nil {
+		return err
+	}
+
+	for i := range migrations {
+		downHandler, err := parser.GetMigrationFileDownHandler(a.MigrationsDir, migrations[i].Name)
+		if err != nil {
+			return err
+		}
+		migrations[i].DownHandlerContext = downHandler
+	}
+
+	err = migrator.Down(ctx, migrations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *MigratorApp) Status() ([]migratorConstants.Migration, error) {
+	migrator, err := a.getMigrator()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	err = migrator.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer migrator.Close()
+
+	err = migrator.Init(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	migrations, err := migrator.GetMigations(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return migrations, nil
+}
+
+func (a *MigratorApp) GetDBVersion() (uint, error) {
+	migrator, err := a.getMigrator()
+	if err != nil {
+		return 0, err
+	}
+
+	ctx := context.Background()
+
+	err = migrator.Connect(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer migrator.Close()
+
+	err = migrator.Init(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	migrations, err := migrator.GetLastMigations(ctx, 1)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(migrations) == 0 {
+		return 0, nil
+	}
+
+	return *migrations[0].ID, nil
 }
 
 func (a *MigratorApp) getCreator(format MigrationFormat) (Creator, error) {
@@ -100,7 +212,7 @@ func (a *MigratorApp) getMigrator() (Migrator, error) {
 	var migrator Migrator
 	switch a.DBType {
 	case DBTypePotgreSQL:
-		migrator = pgmigrator.New()
+		migrator = pgmigrator.New(a.DBConnectionDSN)
 	default:
 		return nil, errors.New("migrator for this database type not realized")
 	}
