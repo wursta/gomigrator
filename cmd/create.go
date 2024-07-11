@@ -38,10 +38,11 @@ var createCmd = &cobra.Command{
 		// 	format = migratorApp.MigrationFormatGo
 		// }
 
-		_, err := app.CreateMigration(migrationName, format)
+		createdFile, err := app.CreateMigration(migrationName, format)
 		if err != nil {
 			log.Fatalf("create migration: %v", err)
 		}
+		log.Println("Migration file created: ", createdFile.Name())
 	},
 }
 

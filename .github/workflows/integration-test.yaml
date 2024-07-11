@@ -1,13 +1,14 @@
-name: Gomigrator tests
+name: Gomigrator integration test
 
 on:
   push:
     branches:
-      - main  
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Extract branch name
         run: echo "BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
@@ -19,13 +20,7 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v3
-
-      - name: Lint
-        run: make lint
       
-      - name: Unit Test
-        run: make test
-
-      - name: Build
-        run: make build
+      - name: Integration test
+        run: make build-and-run-integration-test
 
