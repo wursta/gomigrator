@@ -219,9 +219,10 @@ func TestGetLastMigations(t *testing.T) {
 	mock.
 		ExpectQuery(`SELECT id, file_path, file_name, status, create_dt, migrate_dt 
 		FROM public.dbmigrations 
+		WHERE status = ?
 		ORDER BY id DESC 
 		LIMIT ?`).
-		WithArgs(1).
+		WithArgs("migrated", 1).
 		WillReturnRows(
 			sqlmock.
 				NewRowsWithColumnDefinition(
