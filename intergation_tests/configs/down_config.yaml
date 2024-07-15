@@ -1,0 +1,2 @@
+migrations_dir: "./migrations_down"
+db_dsn: "postgres://test:test@localhost:5432/migrator_down_test"

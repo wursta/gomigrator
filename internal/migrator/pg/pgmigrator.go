@@ -212,10 +212,12 @@ func (m *PgMigrator) GetLastMigations(ctx context.Context, count int) ([]migrato
 		ctx,
 		`SELECT id, file_path, file_name, status, create_dt, migrate_dt 
 		FROM public.dbmigrations 
+		WHERE status = :migration_status
 		ORDER BY id DESC 
 		LIMIT :count`,
 		map[string]interface{}{
-			"count": count,
+			"migration_status": migrator.MigrationStatusMigrated,
+			"count":            count,
 		},
 	)
 	if err != nil {

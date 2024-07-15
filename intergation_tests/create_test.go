@@ -12,16 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getUsingConfigFilePattern(configFilePath string) string {
-	return `\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} Using config file: \.` + configFilePath
-}
-
-func getMigrationFileCreatedPattern(migrationsDir, migrationName string) string {
-	return `\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} Migration file created: .+(?P<FILENAME>` +
-		migrationsDir +
-		`/\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}__` + migrationName + `__[a-zA-Z]{5}.sql)`
-}
-
 func TestCreateSuccess(t *testing.T) {
 	tests := map[string]struct {
 		cmdFlags      []string
@@ -31,27 +21,25 @@ func TestCreateSuccess(t *testing.T) {
 		regex         *regexp.Regexp
 	}{
 		"config flag": {
-			cmdFlags:      []string{"--config=./configs/config.yaml"},
+			cmdFlags:      []string{"--config=./configs/create_config.yaml"},
 			migrationName: "create_foo_table",
-			migrationsDir: "migrations",
+			migrationsDir: "migrations_config_test",
 			regex: regexp.MustCompile("^" +
-				getUsingConfigFilePattern(`/configs/config\.yaml`) +
-				"\n" +
-				getMigrationFileCreatedPattern("migrations", "create_foo_table")),
+				GetMigrationFileCreatedPattern("migrations_config_test", "create_foo_table")),
 		},
 		"migrations-dir flag": {
 			cmdFlags:      []string{"--migrations-dir=./migrations_flag_test"},
 			migrationName: "create_test_table",
 			migrationsDir: "migrations_flag_test",
 			regex: regexp.MustCompile("^" +
-				getMigrationFileCreatedPattern("migrations_flag_test", "create_test_table")),
+				GetMigrationFileCreatedPattern("migrations_flag_test", "create_test_table")),
 		},
 		"migrations-dir env": {
 			envVars:       map[string]string{"GOMIGRATOR_MIGRATIONS_DIR": "migrations_env_test"},
 			migrationName: "create_bar_table",
 			migrationsDir: "migrations_env_test",
 			regex: regexp.MustCompile("^" +
-				getMigrationFileCreatedPattern("migrations_env_test", "create_bar_table")),
+				GetMigrationFileCreatedPattern("migrations_env_test", "create_bar_table")),
 		},
 	}
 
@@ -72,8 +60,27 @@ func TestCreateSuccess(t *testing.T) {
 
 			require.Equal(t, "", stdOut.String())
 			require.Regexp(t, testCase.regex, stdErr.String())
+
+			require.True(
+				t,
+				isCreatedFileExits(
+					stdErr.String(),
+					testCase.migrationsDir,
+					testCase.migrationName,
+				),
+				fmt.Sprintf("Created file not exists: %s", stdErr),
+			)
 		})
 	}
+}
+
+func isCreatedFileExits(output, migrationsDir, migrationName string) bool {
+	re := regexp.MustCompile(GetMigrationFileCreatedPattern(migrationsDir, migrationName))
+	match := re.FindStringSubmatch(output)
+	filename := match[1]
+	_, err := os.Stat(filename)
+
+	return err == nil
 }
 
 func runCmd(env map[string]string, args ...string) (cmd *exec.Cmd, stdOut *bytes.Buffer, stdErr *bytes.Buffer) {

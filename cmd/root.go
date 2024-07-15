@@ -45,6 +45,7 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file (YAML format)")
 	rootCmd.PersistentFlags().String("migrations-dir", "", "Directory with migration files")
+	rootCmd.PersistentFlags().String("db-dsn", "", "Database connection in DSN format")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -61,11 +62,18 @@ func initConfig() {
 	viper.AllowEmptyEnv(true)
 	viper.AutomaticEnv()
 
-	if err := viper.ReadInConfig(); err == nil {
-		log.Println("Using config file:", viper.ConfigFileUsed())
+	if cfgFile != "" {
+		if err := viper.ReadInConfig(); err != nil {
+			log.Fatal("error reading config:", err)
+		}
 	}
 
 	err := viper.BindPFlag("migrations_dir", rootCmd.PersistentFlags().Lookup("migrations-dir"))
+	if err != nil {
+		log.Fatal("error binding flag:", err)
+	}
+
+	err = viper.BindPFlag("db_dsn", rootCmd.PersistentFlags().Lookup("db-dsn"))
 	if err != nil {
 		log.Fatal("error binding flag:", err)
 	}
