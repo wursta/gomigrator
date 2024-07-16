@@ -78,21 +78,39 @@ func ParseMigrations(migrationsDir string) ([]migrator.Migration, error) {
 	return migrations, nil
 }
 
-func GetMigrationFileDownHandler(migrationsDir, migrationFileName string) (migrator.MigrationHandlerContext, error) {
+func GetMigrationFileHandlers(
+	migrationsDir,
+	migrationFileName string,
+) (
+	migrator.MigrationHandlerContext,
+	migrator.MigrationHandlerContext,
+	error,
+) {
 	filePath := filepath.Join(migrationsDir, migrationFileName)
-	_, downStmt, err := parseUpDownStatements(filePath)
+	upStmt, downStmt, err := parseUpDownStatements(filePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return func(ctx context.Context, tx *sqlx.Tx) error {
+	upHandler := func(ctx context.Context, tx *sqlx.Tx) error {
+		_, err := tx.ExecContext(ctx, upStmt)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	downHandler := func(ctx context.Context, tx *sqlx.Tx) error {
 		_, err := tx.ExecContext(ctx, downStmt)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	}, nil
+	}
+
+	return upHandler, downHandler, nil
 }
 
 func parseUpDownStatements(filePath string) (upStmt, downStmt string, err error) {

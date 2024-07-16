@@ -1,11 +1,8 @@
 package intergationtests
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"testing"
 
@@ -81,45 +78,6 @@ func isCreatedFileExits(output, migrationsDir, migrationName string) bool {
 	_, err := os.Stat(filename)
 
 	return err == nil
-}
-
-func runCmd(env map[string]string, args ...string) (cmd *exec.Cmd, stdOut *bytes.Buffer, stdErr *bytes.Buffer) {
-	stdOut = &bytes.Buffer{}
-	stdErr = &bytes.Buffer{}
-
-	cmd = exec.Command("./bin/gomigrator", args...)
-	cmd.Stdout = stdOut
-	cmd.Stderr = stdErr
-	cmd.Env = createEnv(env)
-	return
-}
-
-func execCmd(env map[string]string, args ...string) (returnCode int, stdOut *bytes.Buffer, stdErr *bytes.Buffer) {
-	cmd, stdOut, stdErr := runCmd(env, args...)
-
-	if err := cmd.Start(); err != nil {
-		returnCode = 1
-		return
-	}
-
-	if err := cmd.Wait(); err != nil {
-		var exitErrType *exec.ExitError
-		if errors.As(err, &exitErrType) {
-			returnCode = exitErrType.ExitCode()
-		} else {
-			returnCode = 1
-		}
-	}
-
-	return
-}
-
-func createEnv(env map[string]string) []string {
-	envStrings := make([]string, 0, len(env))
-	for key, val := range env {
-		envStrings = append(envStrings, key+"="+val)
-	}
-	return envStrings
 }
 
 func createMigrationsDir(dirName string, perm os.FileMode) error {

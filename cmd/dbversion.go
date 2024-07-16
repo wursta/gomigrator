@@ -24,7 +24,7 @@ var dbversionCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("error while get databse version: %v", err)
 		}
-		log.Println("Version: ", dbVersion)
+		log.Println("Version:", dbVersion)
 	},
 }
 

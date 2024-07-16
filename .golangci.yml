@@ -19,8 +19,11 @@ linters-settings:
           - github.com/spf13/cobra
           - github.com/spf13/viper
           - github.com/stretchr/testify/require
-          - github.com/jmoiron/sqlx
+          - github.com/jmoiron/sqlx          
           - github.com/jackc/pgx/v5
+          - github.com/jackc/pgx/v5/stdlib
+          - github.com/jackc/pgx/v5/pgconn
+          - github.com/jackc/pgerrcode                    
           - github.com/DATA-DOG/go-sqlmock          
           - github.com/wursta/gomigrator/cmd
           - github.com/wursta/gomigrator/pkg/app

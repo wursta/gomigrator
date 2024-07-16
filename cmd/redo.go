@@ -20,14 +20,10 @@ var redoCmd = &cobra.Command{
 			appConfig.DBConnectionDSN,
 			migratorApp.DBTypePotgreSQL,
 		)
-		err := app.Down()
-		if err != nil {
-			log.Fatalf("down migrations: %v", err)
-		}
 
-		err = app.Up()
+		err := app.Redo()
 		if err != nil {
-			log.Fatalf("up migrations: %v", err)
+			log.Fatalf("redo last migration: %v", err)
 		}
 	},
 }

@@ -44,12 +44,12 @@ func TestUpSuccess(t *testing.T) {
 		migrationFilePath := "./migrations/" + migrationFileName
 
 		expectStatusCheckError(mock, migrationFileName)
-		expectLock(mock, migrationFileName)
-		expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrating)
+		expectLock(mock, migrationFilePath, migrationFileName)
+		expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrating)
 		mock.ExpectBegin()
 		mock.ExpectExec(fmt.Sprint("Test Query ", i)).WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectCommit()
-		expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrated)
+		expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrated)
 		expectUnlock(mock, migrationFileName)
 	}
 
@@ -91,24 +91,24 @@ func TestUpFailure(t *testing.T) {
 	migrationFilePath := "./migrations/migration_0.sql"
 
 	expectStatusCheckError(mock, migrationFileName)
-	expectLock(mock, migrationFileName)
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrating)
+	expectLock(mock, migrationFilePath, migrationFileName)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrating)
 	mock.ExpectBegin()
 	mock.ExpectExec("Test Query 0").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrated)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrated)
 	expectUnlock(mock, migrationFileName)
 
 	migrationFileName = "migration_1.sql"
 	migrationFilePath = "./migrations/migration_1.sql"
 
 	expectStatusCheckError(mock, migrationFileName)
-	expectLock(mock, migrationFileName)
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrating)
+	expectLock(mock, migrationFilePath, migrationFileName)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrating)
 	mock.ExpectBegin()
 	mock.ExpectExec("Test Query 1").WillReturnError(errors.New("some DB error"))
 	mock.ExpectRollback()
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusFailed)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusFailed)
 	expectUnlock(mock, migrationFileName)
 
 	err = pgMigrator.Up(ctx, migrations)
@@ -145,12 +145,12 @@ func TestDownSuccess(t *testing.T) {
 		},
 	}
 
-	expectLock(mock, migrationFileName)
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrating)
+	expectLock(mock, migrationFilePath, migrationFileName)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrating)
 	mock.ExpectBegin()
 	mock.ExpectExec("Test Query").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusNew)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusNew)
 	expectUnlock(mock, migrationFileName)
 
 	ctx := context.Background()
@@ -188,12 +188,12 @@ func TestDownFailure(t *testing.T) {
 		},
 	}
 
-	expectLock(mock, migrationFileName)
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrating)
+	expectLock(mock, migrationFilePath, migrationFileName)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrating)
 	mock.ExpectBegin()
 	mock.ExpectExec("Test Query").WillReturnError(errors.New("some DB error"))
 	mock.ExpectRollback()
-	expectUpdateMigrationStatus(mock, migrationFilePath, migrationFileName, migrator.MigrationStatusMigrated)
+	expectUpdateMigrationStatus(mock, migrationFileName, migrator.MigrationStatusMigrated)
 	expectUnlock(mock, migrationFileName)
 
 	ctx := context.Background()
@@ -244,7 +244,7 @@ func TestGetLastMigations(t *testing.T) {
 		)
 
 	ctx := context.Background()
-	migrations, err := pgMigrator.GetLastMigations(ctx, 1)
+	migrations, err := pgMigrator.GetLastMigations(ctx, migrator.MigrationStatusMigrated, 1)
 	require.Nil(t, err)
 	require.Len(t, migrations, 1)
 	require.Equal(t, uint(1), *migrations[0].ID)
@@ -272,7 +272,13 @@ func expectStatusCheckError(mock sqlmock.Sqlmock, migrationFileName string) {
 		WillReturnError(errors.New("no rows"))
 }
 
-func expectLock(mock sqlmock.Sqlmock, migrationFileName string) {
+func expectLock(mock sqlmock.Sqlmock, migrationFilePath, migrationFileName string) {
+	mock.
+		ExpectExec(`INSERT INTO public.dbmigrations (file_path, file_name, status, create_dt, migrate_dt) 
+		 VALUES (?, ?, ?, NOW(), NOW())`).
+		WithArgs(migrationFilePath, migrationFileName, migrator.MigrationStatusNew).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
 	mock.
 		ExpectExec("SELECT pg_advisory_lock(id) FROM public.dbmigrations WHERE file_name = ?").
 		WithArgs(migrationFileName).
@@ -288,16 +294,15 @@ func expectUnlock(mock sqlmock.Sqlmock, migrationFileName string) {
 
 func expectUpdateMigrationStatus(
 	mock sqlmock.Sqlmock,
-	migrationFilePath,
 	migrationFileName string,
 	status migrator.MigrationStatus,
 ) {
 	mock.
-		ExpectExec(`INSERT INTO public.dbmigrations (file_path, file_name, status, create_dt, migrate_dt) 
-		 VALUES (?, ?, ?, NOW(), NOW())
-		 ON CONFLICT (file_name) DO UPDATE SET
-		 status = ?,
-		 migrate_dt = NOW()`).
-		WithArgs(migrationFilePath, migrationFileName, status, status).
-		WillReturnResult(sqlmock.NewResult(1, 1))
+		ExpectExec(`UPDATE public.dbmigrations 
+		 SET
+			status = ?,
+		 	migrate_dt = NOW()
+		 WHERE file_name = ?`).
+		WithArgs(status, migrationFileName).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 }

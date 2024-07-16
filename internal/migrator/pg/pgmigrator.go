@@ -2,10 +2,13 @@ package pgmigrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib" // postgres driver
 	"github.com/jmoiron/sqlx"
 	"github.com/wursta/gomigrator/internal/migrator"
@@ -99,6 +102,18 @@ func (m *PgMigrator) Init(ctx context.Context) error {
 			CONSTRAINT dbmigrations_pk PRIMARY KEY (id)
 		)`,
 	)
+
+	// Пропускаем, если не удалось создать таблицу по причине ошибки
+	// "ERROR: duplicate key value violates unique constraint... (SQLSTATE 23505)"
+	// Это значит, что таблица уже создана.
+	var e *pgconn.PgError
+	if errors.As(err, &e) && e.Code == pgerrcode.UniqueViolation {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
 	if err != nil {
 		return fmt.Errorf("error while create migrations log table: %w", err)
 	}
@@ -123,18 +138,26 @@ func (m *PgMigrator) Up(ctx context.Context, migrations []migrator.Migration) er
 			continue
 		}
 
-		err := m.ApplyMigration(
+		migrated, err := m.ApplyMigration(
 			ctx,
 			migrations[i],
 			migrator.MigrationDirectionUp,
 			migrator.MigrationStatusMigrating,
 			migrator.MigrationStatusMigrated,
 			migrator.MigrationStatusFailed,
+			func(ctx context.Context, db *sqlx.DB, migration migrator.Migration) bool {
+				// Если взяли lock, надо ещё раз проверить, что миграция ещё не выполнена.
+				return !isMigrated(ctx, db, migration.Name)
+			},
 		)
 		if err != nil {
 			return fmt.Errorf("error while up migration %s: %w", migrations[i].Name, err)
 		}
-		log.Println("Success migration:", migrations[i].Name)
+		if migrated {
+			log.Println("Success migration:", migrations[i].Name)
+		} else {
+			log.Println("Skip migration:", migrations[i].Name)
+		}
 	}
 	return nil
 }
@@ -143,17 +166,19 @@ func (m *PgMigrator) Down(ctx context.Context, migrations []migrator.Migration) 
 	for i := range migrations {
 		log.Println("Start rollback:", migrations[i].Name)
 
-		err := m.ApplyMigration(
+		_, err := m.ApplyMigration(
 			ctx,
 			migrations[i],
 			migrator.MigrationDirectionDown,
 			migrator.MigrationStatusMigrating,
 			migrator.MigrationStatusNew,
 			migrator.MigrationStatusMigrated,
+			nil,
 		)
 		if err != nil {
 			return fmt.Errorf("error while rollback migration %s: %w", migrations[i].Name, err)
 		}
+
 		log.Println("Success rollback:", migrations[i].Name)
 	}
 	return nil
@@ -166,21 +191,28 @@ func (m *PgMigrator) ApplyMigration(
 	startStatus,
 	successStatus,
 	failStatus migrator.MigrationStatus,
-) error {
-	err := lock(ctx, m.db, migration.Name)
+	afterLockCheck func(ctx context.Context, db *sqlx.DB, migration migrator.Migration) bool,
+) (bool, error) {
+	err := lock(ctx, m.db, migration)
 	if err != nil {
-		return fmt.Errorf("error while locking migration row: %w", err)
+		return false, fmt.Errorf("error while locking migration row: %w", err)
 	}
 	defer unlock(ctx, m.db, migration.Name)
 
+	if afterLockCheck != nil {
+		if !afterLockCheck(ctx, m.db, migration) {
+			return false, nil
+		}
+	}
+
 	err = updateMigrationStatus(ctx, m.db, migration, startStatus)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	tx, err := m.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if direction == migrator.MigrationDirectionUp {
@@ -192,22 +224,26 @@ func (m *PgMigrator) ApplyMigration(
 		tx.Rollback()
 		updateStatusErr := updateMigrationStatus(ctx, m.db, migration, failStatus)
 		if updateStatusErr != nil {
-			return updateStatusErr
+			return false, updateStatusErr
 		}
-		return err
+		return false, err
 	}
 
 	tx.Commit()
 
 	err = updateMigrationStatus(ctx, m.db, migration, successStatus)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
-func (m *PgMigrator) GetLastMigations(ctx context.Context, count int) ([]migrator.Migration, error) {
+func (m *PgMigrator) GetLastMigations(
+	ctx context.Context,
+	status migrator.MigrationStatus,
+	count int,
+) ([]migrator.Migration, error) {
 	rows, err := m.db.NamedQueryContext(
 		ctx,
 		`SELECT id, file_path, file_name, status, create_dt, migrate_dt 
@@ -216,7 +252,7 @@ func (m *PgMigrator) GetLastMigations(ctx context.Context, count int) ([]migrato
 		ORDER BY id DESC 
 		LIMIT :count`,
 		map[string]interface{}{
-			"migration_status": migrator.MigrationStatusMigrated,
+			"migration_status": status,
 			"count":            count,
 		},
 	)
@@ -282,12 +318,30 @@ func isMigrated(ctx context.Context, db *sqlx.DB, migrationFileName string) bool
 	return false
 }
 
-func lock(ctx context.Context, db *sqlx.DB, migrationName string) error {
+func lock(ctx context.Context, db *sqlx.DB, migration migrator.Migration) error {
 	_, err := db.NamedExecContext(
+		ctx,
+		`INSERT INTO public.dbmigrations (file_path, file_name, status, create_dt, migrate_dt) 
+		 VALUES (:migration_filepath, :migration_filename, :migration_status, NOW(), NOW())`,
+		map[string]interface{}{
+			"migration_filepath": migration.FilePath,
+			"migration_filename": migration.Name,
+			"migration_status":   migrator.MigrationStatusNew,
+		},
+	)
+
+	// Пропускаем ошибку, есл это "ERROR: duplicate key value violates unique constraint... (SQLSTATE 23505)".
+	// Значит запись в таблице уже есть.
+	var e *pgconn.PgError
+	if errors.As(err, &e) && e.Code != pgerrcode.UniqueViolation {
+		return err
+	}
+
+	_, err = db.NamedExecContext(
 		ctx,
 		`SELECT pg_advisory_lock(id) FROM public.dbmigrations WHERE file_name = :migration_filename`,
 		map[string]interface{}{
-			"migration_filename": migrationName,
+			"migration_filename": migration.Name,
 		},
 	)
 	if err != nil {
@@ -314,13 +368,12 @@ func updateMigrationStatus(
 ) error {
 	_, err := db.NamedExecContext(
 		ctx,
-		`INSERT INTO public.dbmigrations (file_path, file_name, status, create_dt, migrate_dt) 
-		 VALUES (:migration_filepath, :migration_filename, :migration_status, NOW(), NOW())
-		 ON CONFLICT (file_name) DO UPDATE SET
-		 status = :migration_status,
-		 migrate_dt = NOW()`,
+		`UPDATE public.dbmigrations 
+		SET
+			status = :migration_status,
+		 	migrate_dt = NOW()
+		WHERE file_name = :migration_filename`,
 		map[string]interface{}{
-			"migration_filepath": migration.FilePath,
 			"migration_filename": migration.Name,
 			"migration_status":   migrationStatus,
 		},
