@@ -33,6 +33,27 @@ gomigrator down --migrations-dir=migrations --db-dsn=postgres://user:pass@dbhost
 gomigrator redo --migrations-dir=migrations --db-dsn=postgres://user:pass@dbhost:5432/dbname
 ```
 
+### Config
+
+#### Config file
+Create config file config.yaml
+
+```
+migrations_dir: "./migrations_up"
+db_dsn: "postgres://test:test@localhost:5432/migrator_up_test"
+```
+Use `--config` flag in commands:
+```
+gomigrator up --config=./migrations_up
+```
+
+#### ENV-variables
+You can use environment variables
+
+```
+GOMIGRATOR_MIGRATIONS_DIR="./migrations_up" GOMIGRATOR_DB_DSN="postgres://test:test@localhost:5432/migrator_up_test" gomigrator up
+```
+
 ### Options
 ```
 Usage:
