@@ -9,20 +9,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-        postgres: 
-          image: postgres
-          env:
-            POSTGRES_DB: postgres
-            POSTGRES_USER: test
-            POSTGRES_PASSWORD: test            
-          options: >-
-            --health-cmd pg_isready
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5        
-          ports:          
-            - 5432:5432
+    # services:
+    #     postgres: 
+    #       image: postgres
+    #       env:
+    #         POSTGRES_DB: postgres
+    #         POSTGRES_USER: test
+    #         POSTGRES_PASSWORD: test            
+    #       options: >-
+    #         --health-cmd pg_isready
+    #         --health-interval 10s
+    #         --health-timeout 5s
+    #         --health-retries 5        
+    #       ports:          
+    #         - 5432:5432
 
     steps:
       - name: Extract branch name
@@ -35,7 +35,7 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v3
-      
+            
       - name: Integration test
-        run: GOMIGRATOR_TEST_BINARY=$(pwd)/intergation_tests/bin/gomigrator make build-and-run-integration-test
+        run: make integration-test
 
