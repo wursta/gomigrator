@@ -45,7 +45,12 @@ func runCmd(env map[string]string, args ...string) (cmd *exec.Cmd, stdOut *bytes
 	return
 }
 
-func execCmd(env map[string]string, args ...string) (returnCode int, stdOut *bytes.Buffer, stdErr *bytes.Buffer, err error) {
+func execCmd(env map[string]string, args ...string) (
+	returnCode int,
+	stdOut *bytes.Buffer,
+	stdErr *bytes.Buffer,
+	err error,
+) {
 	cmd, stdOut, stdErr := runCmd(env, args...)
 
 	if err = cmd.Start(); err != nil {

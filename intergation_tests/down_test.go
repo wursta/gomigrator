@@ -67,7 +67,6 @@ func TestDownSuccess(t *testing.T) {
 				t.Fatal(err)
 			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
-
 			require.Equal(t, "", stdOut.String())
 
 			outputRegex := regexp.MustCompile(GetRollbackStepPattern(
@@ -80,17 +79,7 @@ func TestDownSuccess(t *testing.T) {
 				) + "\n")
 			require.Regexp(t, outputRegex, stdErr)
 
-			tableExists, err := IsTableExists(db, "public", "foo")
-			if err != nil {
-				t.Fatal(err)
-			}
-			require.True(t, tableExists)
-
-			columnExists, err := IsColumnExists(db, "public", "foo", "name")
-			if err != nil {
-				t.Fatal(err)
-			}
-			require.False(t, columnExists)
+			checkTable(t, db, true, false)
 
 			migrationRegistered, err := IsMigrationRegistered(
 				db,
@@ -119,8 +108,8 @@ func TestDownSuccess(t *testing.T) {
 				t.Fatal(err)
 			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
-
 			require.Equal(t, "", stdOut.String())
+
 			outputRegex = regexp.MustCompile(GetRollbackStepPattern(
 				"Start",
 				"2024_07_05T18_51_07__create_table_foo__hKnRd.sql",
@@ -131,11 +120,7 @@ func TestDownSuccess(t *testing.T) {
 				) + "\n")
 			require.Regexp(t, outputRegex, stdErr)
 
-			tableExists, err = IsTableExists(db, "public", "foo")
-			if err != nil {
-				t.Fatal(err)
-			}
-			require.False(t, tableExists)
+			checkTable(t, db, false, false)
 
 			migrationRegistered, err = IsMigrationRegistered(
 				db,
@@ -148,6 +133,22 @@ func TestDownSuccess(t *testing.T) {
 			require.True(t, migrationRegistered)
 		})
 	}
+}
+
+func checkTable(t *testing.T, db *sqlx.DB, expectedTableExists, expectedColumnExists bool) {
+	t.Helper()
+
+	tableExists, err := IsTableExists(db, "public", "foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.Equal(t, expectedTableExists, tableExists)
+
+	columnExists, err := IsColumnExists(db, "public", "foo", "name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.Equal(t, expectedColumnExists, columnExists)
 }
 
 func initDBTestData(db *sqlx.DB) error {

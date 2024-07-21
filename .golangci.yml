@@ -46,6 +46,7 @@ issues:
         - dupl
         - gocyclo
         - gosec
+        - dogsled
 
 linters:
   disable-all: true
