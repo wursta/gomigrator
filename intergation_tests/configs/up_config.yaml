@@ -1,2 +1,2 @@
 migrations_dir: "./migrations_up"
-db_dsn: "postgres://test:test@localhost:5432/migrator_up_test"
+db_dsn: "postgres://test:test@db:5432/migrator_up_test"

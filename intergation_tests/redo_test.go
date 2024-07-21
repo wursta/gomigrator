@@ -17,23 +17,23 @@ func TestRedoSuccess(t *testing.T) {
 	}{
 		"config flag": {
 			cmdFlags:     []string{"--config=./configs/up_config.yaml"},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_test",
 			databaseName: "migrator_up_test",
 		},
 		"db-dsn flag": {
 			cmdFlags: []string{
 				"--migrations-dir=./migrations_up",
-				"--db-dsn=postgres://test:test@localhost:5432/migrator_up_dsn_flag_test",
+				"--db-dsn=postgres://test:test@db:5432/migrator_up_dsn_flag_test",
 			},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_dsn_flag_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_dsn_flag_test",
 			databaseName: "migrator_up_dsn_flag_test",
 		},
 		"db-dsn env": {
 			envVars: map[string]string{
 				"GOMIGRATOR_MIGRATIONS_DIR": "migrations_up",
-				"GOMIGRATOR_DB_DSN":         "postgres://test:test@localhost:5432/migrator_up_dsn_env_test",
+				"GOMIGRATOR_DB_DSN":         "postgres://test:test@db:5432/migrator_up_dsn_env_test",
 			},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_dsn_env_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_dsn_env_test",
 			databaseName: "migrator_up_dsn_env_test",
 		},
 	}
@@ -56,12 +56,18 @@ func TestRedoSuccess(t *testing.T) {
 
 			cmdArgs := []string{"up"}
 			cmdArgs = append(cmdArgs, testCase.cmdFlags...)
-			returnCode, stdOut, stdErr := execCmd(testCase.envVars, cmdArgs...)
+			returnCode, stdOut, stdErr, err := execCmd(testCase.envVars, cmdArgs...)
+			if err != nil {
+				t.Fatal(err)
+			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 			cmdArgs = []string{"redo"}
 			cmdArgs = append(cmdArgs, testCase.cmdFlags...)
-			returnCode, stdOut, stdErr = execCmd(testCase.envVars, cmdArgs...)
+			returnCode, stdOut, stdErr, err = execCmd(testCase.envVars, cmdArgs...)
+			if err != nil {
+				t.Fatal(err)
+			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 			require.Equal(t, "", stdOut.String())

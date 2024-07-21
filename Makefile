@@ -22,7 +22,7 @@ test:
 run-integration-test:
 	go test ./intergation_tests/...
 build-and-run-integration-test: build-for-integration-test run-integration-test
-integration-test: up-docker build-and-run-integration-test down-docker
+integration-test: docker compose -f .\deployments\docker-compose.yaml up --build --abort-on-container-exit
 
 # docker
 build-docker:

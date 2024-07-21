@@ -1,13 +1,12 @@
 version: "3.9"
 
 services:
-  migrator:    
-    image: golang:1.22-bullseye        
-    working_dir: /app
-    volumes:
-      - ../:/app
+  migrator:
+    build:
+      context: ../
+      dockerfile: ./deployments/images/migrator/Dockerfile    
     links: 
-      - db
+      - db    
 
   db:
     image: postgres:latest

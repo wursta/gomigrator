@@ -3,6 +3,7 @@ package intergationtests
 import (
 	"bytes"
 	"errors"
+	"os"
 	"os/exec"
 )
 
@@ -29,25 +30,30 @@ func GetMigrationStatusPattern(status, migrationName string) string {
 }
 
 func runCmd(env map[string]string, args ...string) (cmd *exec.Cmd, stdOut *bytes.Buffer, stdErr *bytes.Buffer) {
+	binary := os.Getenv("GOMIGRATOR_TEST_BINARY")
+	if _, err := os.Stat(binary); errors.Is(err, os.ErrNotExist) {
+		panic(err)
+	}
+
 	stdOut = &bytes.Buffer{}
 	stdErr = &bytes.Buffer{}
 
-	cmd = exec.Command("./bin/gomigrator", args...)
+	cmd = exec.Command(binary, args...)
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
 	cmd.Env = createEnv(env)
 	return
 }
 
-func execCmd(env map[string]string, args ...string) (returnCode int, stdOut *bytes.Buffer, stdErr *bytes.Buffer) {
+func execCmd(env map[string]string, args ...string) (returnCode int, stdOut *bytes.Buffer, stdErr *bytes.Buffer, err error) {
 	cmd, stdOut, stdErr := runCmd(env, args...)
 
-	if err := cmd.Start(); err != nil {
+	if err = cmd.Start(); err != nil {
 		returnCode = 1
 		return
 	}
 
-	if err := cmd.Wait(); err != nil {
+	if err = cmd.Wait(); err != nil {
 		var exitErrType *exec.ExitError
 		if errors.As(err, &exitErrType) {
 			returnCode = exitErrType.ExitCode()

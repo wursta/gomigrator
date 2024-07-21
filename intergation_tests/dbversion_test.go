@@ -15,15 +15,21 @@ func TestDBVersionSuccess(t *testing.T) {
 	}
 	defer DropDatabase("migrator_up_test")
 
-	db, err := Connect("postgres://test:test@localhost:5432/migrator_up_test")
+	db, err := Connect("postgres://test:test@db:5432/migrator_up_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	execCmd(nil, "up", "--config=./configs/up_config.yaml")
+	_, _, _, err = execCmd(nil, "up", "--config=./configs/up_config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	returnCode, stdOut, stdErr := execCmd(nil, "dbversion", "--config=./configs/up_config.yaml")
+	returnCode, stdOut, stdErr, err := execCmd(nil, "dbversion", "--config=./configs/up_config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 	require.Equal(t, "", stdOut.String())
@@ -32,7 +38,10 @@ func TestDBVersionSuccess(t *testing.T) {
 
 	execCmd(nil, "down", "--config=./configs/up_config.yaml")
 
-	returnCode, stdOut, stdErr = execCmd(nil, "dbversion", "--config=./configs/up_config.yaml")
+	returnCode, stdOut, stdErr, err = execCmd(nil, "dbversion", "--config=./configs/up_config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 	require.Equal(t, "", stdOut.String())

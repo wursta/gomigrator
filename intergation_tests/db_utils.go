@@ -20,7 +20,7 @@ func Connect(dsn string) (*sqlx.DB, error) {
 }
 
 func CreateDatabase(databaseName string) error {
-	db, err := Connect("postgres://test:test@localhost:5432/postgres")
+	db, err := Connect("postgres://test:test@db:5432/postgres")
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func CreateDatabase(databaseName string) error {
 }
 
 func DropDatabase(databaseName string) error {
-	db, err := Connect("postgres://test:test@localhost:5432/postgres")
+	db, err := Connect("postgres://test:test@db:5432/postgres")
 	if err != nil {
 		return err
 	}
