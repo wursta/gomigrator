@@ -19,23 +19,23 @@ func TestUpSuccess(t *testing.T) {
 	}{
 		"config flag": {
 			cmdFlags:     []string{"--config=./configs/up_config.yaml"},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_test",
 			databaseName: "migrator_up_test",
 		},
 		"db-dsn flag": {
 			cmdFlags: []string{
 				"--migrations-dir=./migrations_up",
-				"--db-dsn=postgres://test:test@localhost:5432/migrator_up_dsn_flag_test",
+				"--db-dsn=postgres://test:test@db:5432/migrator_up_dsn_flag_test",
 			},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_dsn_flag_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_dsn_flag_test",
 			databaseName: "migrator_up_dsn_flag_test",
 		},
 		"db-dsn env": {
 			envVars: map[string]string{
 				"GOMIGRATOR_MIGRATIONS_DIR": "migrations_up",
-				"GOMIGRATOR_DB_DSN":         "postgres://test:test@localhost:5432/migrator_up_dsn_env_test",
+				"GOMIGRATOR_DB_DSN":         "postgres://test:test@db:5432/migrator_up_dsn_env_test",
 			},
-			dsn:          "postgres://test:test@localhost:5432/migrator_up_dsn_env_test",
+			dsn:          "postgres://test:test@db:5432/migrator_up_dsn_env_test",
 			databaseName: "migrator_up_dsn_env_test",
 		},
 	}
@@ -58,7 +58,10 @@ func TestUpSuccess(t *testing.T) {
 
 			cmdArgs := []string{"up"}
 			cmdArgs = append(cmdArgs, testCase.cmdFlags...)
-			returnCode, stdOut, stdErr := execCmd(testCase.envVars, cmdArgs...)
+			returnCode, stdOut, stdErr, err := execCmd(testCase.envVars, cmdArgs...)
+			if err != nil {
+				t.Fatal(err)
+			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 			require.Equal(t, "", stdOut.String())
@@ -120,6 +123,7 @@ type execResults struct {
 	returnCode int
 	stdOut     *bytes.Buffer
 	stdErr     *bytes.Buffer
+	err        error
 }
 
 func TestUpConcurrent(t *testing.T) {
@@ -129,7 +133,7 @@ func TestUpConcurrent(t *testing.T) {
 	}
 	defer DropDatabase("migrator_up_test")
 
-	db, err := Connect("postgres://test:test@localhost:5432/migrator_up_test")
+	db, err := Connect("postgres://test:test@db:5432/migrator_up_test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +147,7 @@ func TestUpConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		returnCode, stdOut, stdErr := execCmd(nil, "up", "--config=./configs/up_config.yaml")
+		returnCode, stdOut, stdErr, err := execCmd(nil, "up", "--config=./configs/up_config.yaml")
 
 		mu.Lock()
 		defer mu.Unlock()
@@ -151,13 +155,14 @@ func TestUpConcurrent(t *testing.T) {
 			returnCode: returnCode,
 			stdOut:     stdOut,
 			stdErr:     stdErr,
+			err:        err,
 		})
 	}()
 
 	go func() {
 		defer wg.Done()
 
-		returnCode, stdOut, stdErr := execCmd(nil, "up", "--config=./configs/up_config.yaml")
+		returnCode, stdOut, stdErr, err := execCmd(nil, "up", "--config=./configs/up_config.yaml")
 
 		mu.Lock()
 		defer mu.Unlock()
@@ -165,12 +170,17 @@ func TestUpConcurrent(t *testing.T) {
 			returnCode: returnCode,
 			stdOut:     stdOut,
 			stdErr:     stdErr,
+			err:        err,
 		})
 	}()
 
 	wg.Wait()
 
 	for i := range results {
+		if results[i].err != nil {
+			t.Fatal(results[i].err)
+		}
+
 		require.Equal(
 			t,
 			0,

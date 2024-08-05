@@ -22,24 +22,25 @@ test:
 run-integration-test:
 	go test ./intergation_tests/...
 build-and-run-integration-test: build-for-integration-test run-integration-test
-integration-test: up-docker build-and-run-integration-test down-docker
+integration-test: 
+	docker compose -f ./deployments/docker-compose.integration-test.yaml up --build --abort-on-container-exit
 
 # docker
 build-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make build
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make build
 build-win-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make build-win
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make build-win
 up-docker:
 	docker compose -f deployments/docker-compose.yaml up -d --build
 down-docker:
 	docker compose -f deployments/docker-compose.yaml down
 lint-fix-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make lint-fix
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make lint-fix
 lint-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make lint
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make lint
 test-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make test
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make test
 integration-test-docker:
-	docker compose -f .\deployments\docker-compose.yaml run --rm -it migrator make integration-test
+	docker compose -f ./deployments/docker-compose.yaml run --rm -it migrator make integration-test
 
 

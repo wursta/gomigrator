@@ -52,7 +52,10 @@ func TestCreateSuccess(t *testing.T) {
 
 			cmdArgs := []string{"create", testCase.migrationName}
 			cmdArgs = append(cmdArgs, testCase.cmdFlags...)
-			returnCode, stdOut, stdErr := execCmd(testCase.envVars, cmdArgs...)
+			returnCode, stdOut, stdErr, err := execCmd(testCase.envVars, cmdArgs...)
+			if err != nil {
+				t.Fatal(err)
+			}
 			require.Equal(t, 0, returnCode, fmt.Sprintf("stdout: %s\nstderr: %s", stdOut, stdErr))
 
 			require.Equal(t, "", stdOut.String())
